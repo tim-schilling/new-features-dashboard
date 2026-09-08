@@ -10,6 +10,12 @@ on:
       - 'scripts/**'
       - 'site/**'
       - '.github/workflows/deploy.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/**'
+      - 'site/**'
+      - '.github/workflows/deploy.yml'
 
 permissions:
   contents: read
@@ -17,7 +23,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -46,24 +52,31 @@ jobs:
       # output/ (gitignored) holds the raw fetch results, cached per UTC
       # day. Every run on a given day (schedule, push, or manual) hits the
       # same key and reuses whatever was fetched earlier that day; the
-      # first run of a new day misses and triggers a fresh fetch.
+      # first run of a new day misses and triggers a fresh fetch. PR runs
+      # fall back to the most recent available cache (restore-keys) and
+      # never fetch or write to the cache themselves: PROJECTS_TOKEN isn't
+      # available to PRs from forks, and re-fetching on every PR would
+      # multiply API usage for no benefit over reusing today's/yesterday's
+      # data.
       - name: Restore cached issue data
         id: cache-restore
         uses: actions/cache/restore@v4
         with:
           path: output
           key: issue-data-${{ steps.date.outputs.date }}
+          restore-keys: |
+            issue-data-
 
       - name: Fetch reactions
-        if: steps.cache-restore.outputs.cache-hit != 'true'
+        if: steps.cache-restore.outputs.cache-hit != 'true' && github.event_name != 'pull_request'
         run: uv run python scripts/fetch_reactions.py --repo django/new-features -v
 
       - name: Fetch issue details (labels, comments, project status)
-        if: steps.cache-restore.outputs.cache-hit != 'true'
+        if: steps.cache-restore.outputs.cache-hit != 'true' && github.event_name != 'pull_request'
         run: uv run python scripts/fetch_issue_details.py --repo django/new-features --project-number 24 -v
 
       - name: Save issue data cache
-        if: steps.cache-restore.outputs.cache-hit != 'true'
+        if: steps.cache-restore.outputs.cache-hit != 'true' && github.event_name != 'pull_request'
         uses: actions/cache/save@v4
         with:
           path: output
@@ -96,12 +109,14 @@ jobs:
         run: npm test
 
       - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           path: site/dist
 
   deploy:
     needs: build
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
