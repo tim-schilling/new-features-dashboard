@@ -63,6 +63,9 @@ Deploys via `.github/workflows/deploy.yml` to GitHub Pages
 (https://tim-schilling.github.io/new-features-dashboard/) — requires a
 `PROJECTS_TOKEN` repo secret and Pages source set to "GitHub Actions".
 
+The workflow caches fetch output (`output/`) per UTC day, so only the first
+run each day hits the GitHub API — later runs that day reuse the cache.
+
 `PROJECTS_TOKEN` should be a **fine-grained** PAT, scoped to just this repo,
 with:
 - Repository access: `django/new-features` only

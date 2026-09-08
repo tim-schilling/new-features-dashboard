@@ -39,11 +39,35 @@ jobs:
       - name: Install Python deps
         run: uv sync
 
+      - name: Get UTC date
+        id: date
+        run: echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      # output/ (gitignored) holds the raw fetch results, cached per UTC
+      # day. Every run on a given day (schedule, push, or manual) hits the
+      # same key and reuses whatever was fetched earlier that day; the
+      # first run of a new day misses and triggers a fresh fetch.
+      - name: Restore cached issue data
+        id: cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: output
+          key: issue-data-${{ steps.date.outputs.date }}
+
       - name: Fetch reactions
+        if: steps.cache-restore.outputs.cache-hit != 'true'
         run: uv run python scripts/fetch_reactions.py --repo django/new-features -v
 
       - name: Fetch issue details (labels, comments, project status)
+        if: steps.cache-restore.outputs.cache-hit != 'true'
         run: uv run python scripts/fetch_issue_details.py --repo django/new-features --project-number 24 -v
+
+      - name: Save issue data cache
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: output
+          key: issue-data-${{ steps.date.outputs.date }}
 
       - name: Build site data
         run: uv run python scripts/build_site_data.py
