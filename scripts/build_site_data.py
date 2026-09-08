@@ -9,6 +9,7 @@ import argparse
 import json
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 import yaml
 
@@ -82,6 +83,7 @@ def main():
         "issues": merged,
     }
 
+    Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     with open(args.output, "w") as f:
         json.dump(payload, f, indent=2, sort_keys=False)
         f.write("\n")

@@ -10,6 +10,7 @@ Usage:
     python scripts/fetch_issue_details.py [--repo django/new-features] [--project-number 24] [--output output/issue_details.yaml]
 """
 import argparse
+import os
 import sys
 import time
 from collections import Counter
@@ -148,6 +149,10 @@ def main():
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "issues": report_issues,
     }
+
+    output_dir = os.path.dirname(args.output)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
 
     with open(args.output, "w") as f:
         yaml.safe_dump(report, f, allow_unicode=True, sort_keys=False)
