@@ -1,79 +1,76 @@
-# new-features tooling
+# Django New Features Dashboard
 
-Scripts that fetch GitHub issue data into `output/` (gitignored), plus a
-static site (`site/`) that turns it into a searchable/filterable/sortable
-table, published to GitHub Pages by `.github/workflows/deploy.yml`.
+A prototype dashboard for browsing the [django/new-features](https://github.com/django/new-features)
+repo. This project pulls in data GitHub scatters across separate pages
+(reactions, comments, project board status) and puts it all in a single
+sortable, filterable table.
 
-## `scripts/fetch_reactions.py`
+Live site: https://tim-schilling.github.io/new-features-dashboard/
 
-Emoji reactions on every issue body (not comments) in a GitHub repo, grouped
-per issue.
+## Major features
 
-```
-uv run python scripts/fetch_reactions.py --repo django/new-features -v
-```
+- Full-text search across issue title and description
+- Reactor list, and commenter list
+- Filter by project status and by label (multi-select)
+- Sort by reactions, reaction ratio, comment count, top commenters, and more
+- Daily automated data refresh via GitHub Actions, published to GitHub Pages
+- 
+## What it adds beyond GitHub
 
-Flags: `--repo`, `--output`/`-o`, `--state {all,open,closed}`, `--limit N`, `-v`.
-
-## `scripts/fetch_issue_details.py`
-
-Labels, per-commenter comment counts, and the GitHub Projects (v2) "Status"
-field for every issue in a GitHub repo (via GraphQL).
-
-```
-uv run python scripts/fetch_issue_details.py --repo django/new-features --project-number 24 -v
-```
-
-Flags: `--repo`, `--project-number` (default `24`, the "New Features" project),
-`--output`/`-o`, `--state {all,open,closed}`, `--limit N`, `-v`.
-
-## `scripts/build_site_data.py`
-
-Merges `output/reactions.yaml` and `output/issue_details.yaml` into
-`site/src/data/issues.json`, the single data file the static site reads.
-
-```
-uv run python scripts/build_site_data.py
-```
-
-## `site/`
-
-A Vite + TypeScript static site using [Tabulator](https://tabulator.info/)
-for the searchable/filterable/sortable issue table. Local dev:
-
-```
-cd site
-npm install
-npm run build   # or `npm run dev` for hot reload against whatever is in src/data/issues.json
-npm test        # Playwright smoke tests (spins up its own preview server)
-```
-
-`site/src/data/issues.json` is gitignored — generate it locally with the
-scripts above before running `dev`/`build`/`test`.
+- **Reaction breakdown per issue.** This shows who reacted with what.
+- **Commenter breakdown.** Top commenters and full per-user comment counts
+  for each issue.
+- **Project board status.**
+- **Searching, sorting and filtering.** Includes columns GitHub can't on such 
+  as reaction ratio, comment count, top commenters.
+- **Shareable views.** Search, filters, and sort are encoded in the URL, so
+  a filtered view can be shared with a link.
 
 ## Contributing
 
-`just --list` shows all commands (`just sync`, `just auth-project`,
-`just pipeline`, `just site-install`, `just site-dev`, `just site-test`, etc.).
+The application is several Python scripts that use the `gh` CLI to fetch
+data into yml files. The site itself is a Vite + TypeScript app using
+[Tabulator](https://tabulator.info/) for the table.
 
-Prerequisites: `gh auth login`, then `just auth-project` for the
-`read:project` scope `fetch-details` needs.
+### Local setup
 
-Deploys via `.github/workflows/deploy.yml` to GitHub Pages
-(https://tim-schilling.github.io/new-features-dashboard/) — requires a
-`PROJECTS_TOKEN` repo secret and Pages source set to "GitHub Actions".
+```
+just sync           # install Python deps
+just auth-project    # grant gh the read:project scope
+just pipeline         # fetch-reactions -> fetch-details -> build-data
+just site-install
+just site-dev         # or `just site-build`, `just site-test`
+```
 
-The workflow caches fetch output (`output/`) per UTC day, so only the first
-run each day hits the GitHub API — later runs that day reuse the cache.
+Run `just --list` for the full command list.
 
-`PROJECTS_TOKEN` should be a **fine-grained** PAT, scoped to just this repo,
-with:
-- Repository access: `django/new-features` only
-- Repository permissions: `Issues: Read-only` (also covers reactions)
-- Organization permissions: `Projects: Read-only` (needed since the "New
-  Features" project is org-owned; the django org must have fine-grained PAT
-  access enabled/approved for this to take effect)
+### Data flow
 
-A classic PAT with `repo` + `read:project` scopes also works but is
-overprivileged (full read/write repo access) for what this pipeline needs —
-prefer the fine-grained token above.
+```mermaid
+flowchart LR
+    A[fetch_reactions.py] -->|reactions.yaml| C[build_site_data.py]
+    B[fetch_issue_details.py] -->|issue_details.yaml| C
+    C -->|issues.json| D[site/ Vite build]
+    D -->|site/dist| E[GitHub Pages]
+
+    subgraph GitHub
+      GH[gh CLI: REST + GraphQL]
+    end
+    GH --> A
+    GH --> B
+```
+
+### Deployment
+
+`.github/workflows/deploy.yml` runs daily and on pushes to `main` that
+touch `scripts/` or `site/`. It fetches fresh data, builds the site, and
+publishes to GitHub Pages. `output/` is cached per UTC day, so only the
+first workflow run each day hits the GitHub API.
+
+The workflow needs a `PROJECTS_TOKEN` repo secret, since the default
+`GITHUB_TOKEN` can't read Projects (v2) data. Use a classic PAT with `repo`
+and `read:project` scopes.
+
+A fine-grained PAT scoped to just `django/new-features` (`Issues:
+Read-only`, plus org permission `Projects: Read-only`) is more locked down,
+but requires Ops Team approval.
