@@ -51,6 +51,19 @@ const REACTION_TYPES: { key: string; emoji: string; title: string }[] = [
   { key: 'confused', emoji: '😕', title: 'confused' },
 ];
 
+// Every GitHub reaction content type, for displaying the full reactor list
+// (the table columns above only surface a subset).
+const REACTION_EMOJI: Record<string, string> = {
+  '+1': '👍',
+  '-1': '👎',
+  laugh: '😄',
+  confused: '😕',
+  heart: '❤️',
+  hooray: '🎉',
+  rocket: '🚀',
+  eyes: '👀',
+};
+
 function computeRatio(thumbsUp: number, thumbsDown: number): number {
   if (thumbsUp === 0) return thumbsDown === 0 ? 0 : Infinity;
   return thumbsDown / thumbsUp;
@@ -103,6 +116,7 @@ const allLabels = Array.from(new Set(data.issues.flatMap((i) => i.labels))).sort
 // formatters read from these Sets on every redraw.
 const expandedDetails = new Set<number>();
 const expandedCommenters = new Set<number>();
+const expandedReactors = new Set<number>();
 
 const DEFAULT_SORT: { column: string; dir: 'asc' | 'desc' }[] = [
   { column: 'total_reactions', dir: 'desc' },
@@ -267,11 +281,33 @@ const table = new Tabulator('#table', {
             ${expanded ? `<div class="issue-details" tabindex="0" role="region" aria-label="Issue description"><div class="issue-desc">${formatMultiline(row.description)}</div></div>` : ''}
           `;
         }
+        const reactionEntries = Object.entries(row.reactions_users ?? {}).filter(
+          ([, users]) => users.length > 0,
+        );
+        let reactorsHtml = '';
+        if (reactionEntries.length > 0) {
+          const expanded = expandedReactors.has(row.number);
+          const lines = reactionEntries
+            .map(([content, users]) => {
+              const emoji = REACTION_EMOJI[content] ?? content;
+              return `<div class="reactor-line"><span class="reactor-emoji">${emoji}</span> ${users
+                .map((u) => escapeHtml(u))
+                .join(', ')}</div>`;
+            })
+            .join('');
+          reactorsHtml = `
+            <button type="button" class="link-toggle" data-action="toggle-reactors" data-number="${row.number}">${
+              expanded ? 'Hide reactions ▴' : 'Show reactions ▾'
+            }</button>
+            ${expanded ? `<div class="issue-reactors" tabindex="0" role="region" aria-label="Issue reactions">${lines}</div>` : ''}
+          `;
+        }
         return `<div class="issue-card">
             <div class="issue-title">${escapeHtml(row.title)}</div>
             ${statusHtml}
             ${labelsHtml}
             ${detailsHtml}
+            ${reactorsHtml}
           </div>`;
       },
     },
@@ -553,6 +589,10 @@ tableEl.addEventListener('click', (e) => {
   } else if (action === 'toggle-commenters' && number !== null) {
     if (expandedCommenters.has(number)) expandedCommenters.delete(number);
     else expandedCommenters.add(number);
+    redrawPreservingScroll();
+  } else if (action === 'toggle-reactors' && number !== null) {
+    if (expandedReactors.has(number)) expandedReactors.delete(number);
+    else expandedReactors.add(number);
     redrawPreservingScroll();
   } else if (action === 'filter-label') {
     const label = actionEl.dataset.label!;

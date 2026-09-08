@@ -308,6 +308,26 @@ a {
   white-space: normal;
 }
 
+.issue-reactors {
+  max-height: 320px;
+  overflow-y: auto;
+  padding-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reactor-line {
+  font-size: 0.8rem;
+  color: var(--muted);
+  white-space: normal;
+}
+
+.reactor-emoji {
+  display: inline-block;
+  width: 1.4em;
+}
+
 .sort-hint {
   color: var(--muted);
   font-size: 0.78rem;
