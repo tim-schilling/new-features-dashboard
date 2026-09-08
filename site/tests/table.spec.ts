@@ -152,6 +152,22 @@ test('description is hidden until expanded', async ({ page }) => {
   await expect(row.locator('.issue-details')).toBeVisible();
 });
 
+test('reactor list is hidden until expanded', async ({ page }) => {
+  await page.goto('/');
+  const target = openIssues.find((i) =>
+    Object.values(i.reactions_users ?? {}).some((users) => users.length > 0),
+  );
+  test.skip(!target, 'no open issue with reactions in current data');
+
+  const row = page.locator('.tabulator-row').filter({ has: page.locator(`a:text-is("#${target!.number}")`) });
+  await expect(row.locator('.issue-reactors')).toHaveCount(0);
+
+  await row.locator('[data-action="toggle-reactors"]').click();
+  await expect(row.locator('.issue-reactors')).toBeVisible();
+  const [, users] = Object.entries(target!.reactions_users ?? {}).find(([, u]) => u.length > 0)!;
+  await expect(row.locator('.issue-reactors')).toContainText(users[0]);
+});
+
 test('clicking a label chip adds it to the label filter', async ({ page }) => {
   await page.goto('/');
   const target = openIssues.find((i) => i.labels.length > 0);
