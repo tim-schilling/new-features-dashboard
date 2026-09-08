@@ -1,0 +1,22 @@
+{
+  "name": "new-features-site",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "tabulator-tables": "^6.3.1"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
+    "@types/tabulator-tables": "^6.3.6",
+    "typescript": "~5.6.2",
+    "vite": "^8.2.2"
+  }
+}
