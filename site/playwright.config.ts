@@ -4,10 +4,10 @@ export default defineConfig({
   testDir: './tests',
   webServer: {
     command: 'npm run preview -- --port 4173',
-    url: 'http://localhost:4173/new-features/',
+    url: 'http://localhost:4173/new-features-dashboard/',
     reuseExistingServer: !process.env.CI,
   },
   use: {
-    baseURL: 'http://localhost:4173/new-features/',
+    baseURL: 'http://localhost:4173/new-features-dashboard/',
   },
 });
